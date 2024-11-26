@@ -2,7 +2,6 @@ import SwiftUI
 
 struct MainView: View {
     @StateObject var royviaData = RoyViaDataViewModel()
-    @StateObject var presentationManager = GlobalPresentationManager() // Central manager
     @State private var selectedTab = 0
     
     var body: some View {
@@ -16,26 +15,22 @@ struct MainView: View {
                         .tag(0)
                     
                     ProductBarcodeScanView(royviaData: royviaData)
-                        .environmentObject(presentationManager)
                         .tabItem {
                             Label("Barcode Scan", systemImage: "barcode.viewfinder")
                         }
                         .tag(1)
                     
-                    ProductIngredientScanView()
-                        .environmentObject(presentationManager)
+                    ProductIngredientScanView(royviaData: royviaData)
                         .tabItem {
                             Label("Ingredient Scan", systemImage: "text.viewfinder")
                         }
                         .tag(2)
                 }
                 .onChange(of: selectedTab) { newTab in
-                    presentationManager.activeSheet = nil
                     if newTab == 1 { // Barcode Scanner tab
-                        NotificationCenter.default.post(name: .activateBarcodeScanner, object: nil)
+                        print("Changed, Barcode Tab")
                     } else if newTab == 2 { // Ingredient Scanner tab
-                        NotificationCenter.default
-                            .post(name: .resetBarcodeState, object: nil)
+                        print("Changed, Ingredient Tab")
                     }
                 }
             } else {

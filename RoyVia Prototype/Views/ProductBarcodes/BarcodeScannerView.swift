@@ -1,3 +1,4 @@
+
 import SwiftUI
 import AVFoundation
 import AudioToolbox
@@ -27,6 +28,7 @@ struct BarcodeScannerView: UIViewControllerRepresentable {
             // Stop scanning temporarily
             DispatchQueue.global(qos: .userInitiated).async {
                 self.captureSession?.stopRunning()
+                print("- Barcode scaning shutting down after scan")
             }
             
             // Return the scanned code and its type
@@ -96,6 +98,7 @@ struct BarcodeScannerView: UIViewControllerRepresentable {
         DispatchQueue.global(qos: .userInitiated).async {
             if self.isScanning {
                 captureSession.startRunning()
+                print("- Barcode scaning turning on while prepiing ViewController")
             }
         }
         
@@ -109,12 +112,14 @@ struct BarcodeScannerView: UIViewControllerRepresentable {
             DispatchQueue.global(qos: .userInitiated).async {
                 if !session.isRunning {
                     session.startRunning()
+                    print("- Barcode scaning turning on")
                 }
             }
         } else {
             DispatchQueue.global(qos: .userInitiated).async {
                 if session.isRunning {
                     session.stopRunning()
+                    print("- Barcode scaning shutting down")
                 }
             }
         }
@@ -162,7 +167,7 @@ struct BarcodeScannerView: UIViewControllerRepresentable {
         
         // Add an instruction label
         let instructionLabel = UILabel()
-        instructionLabel.text = "Align the barcode near the frame to scan"
+        instructionLabel.text = "Align the barcode or QR code\nnear the frame to scan"
         instructionLabel.textColor = .white
         instructionLabel.font = UIFont.systemFont(ofSize: 16, weight: .medium)
         instructionLabel.textAlignment = .center

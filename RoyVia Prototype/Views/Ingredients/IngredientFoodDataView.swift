@@ -1,13 +1,13 @@
 import SwiftUI
 
-struct IngredientSheetView: View {
+struct IngredientFoodDataView: View {
     let ingredients: [String]
     let errorMessage: String?
     let onDismiss: () -> Void
     
     var body: some View {
         NavigationView {
-            ZStack{
+            ZStack {
                 BackgroundView()
                     .opacity(0.4)
                 VStack {
@@ -24,22 +24,29 @@ struct IngredientSheetView: View {
                         .padding()
                         .scrollContentBackground(.hidden)
                     } else {
-                        Text("No data available.")
+                        Text("Preparing Data.")
                             .foregroundColor(.gray)
                             .font(.headline)
                             .padding()
                     }
-                    
                     Spacer()
+                    
+                    // Close Button
                     Button(action: {
                         onDismiss()
                     }) {
-                        OutlineTextView(text: "Try Another Product")
+                        OutlineTextView(text: "Close")
                     }
                 }
             }
-            .navigationTitle("Ingredients")
+            .navigationTitle("Ingredients Data")
             .navigationBarTitleDisplayMode(.large)
+        }
+        .onAppear {
+            print("IngredientFoodDataView appeared")
+        }
+        .onDisappear {
+            print("IngredientFoodDataView disappeared")
         }
     }
 }

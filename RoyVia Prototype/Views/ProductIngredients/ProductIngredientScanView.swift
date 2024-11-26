@@ -1,8 +1,24 @@
 import SwiftUI
+
 struct ProductIngredientScanView: View {
-    @EnvironmentObject var presentationManager: GlobalPresentationManager
+    @ObservedObject var royviaData: RoyViaDataViewModel
     @StateObject private var viewModel = ProductIngredientScanViewModel()
     @State private var capturedPhoto: UIImage? = nil
+    @State private var activeModal: ActiveModal? = nil // Enum to manage modals
+    
+    enum ActiveModal: Identifiable {
+        case scanner
+        case ingredientCheck
+        
+        var id: String {
+            switch self {
+                case .scanner:
+                    return "scanner"
+                case .ingredientCheck:
+                    return "ingredientCheck"
+            }
+        }
+    }
     
     var body: some View {
         ZStack {
@@ -33,10 +49,9 @@ struct ProductIngredientScanView: View {
                         .font(.headline)
                         .padding()
                     Button(action: {
-                        presentationManager.present(sheet: "Scanner")
-                        capturedPhoto = nil
                         viewModel.capturedImage = nil
-                        viewModel.ingredientsSheetData = nil
+                        viewModel.ingredientData = nil
+                        activeModal = .scanner
                     }) {
                         OutlineTextView(text: "Take a Photo")
                     }
@@ -45,48 +60,50 @@ struct ProductIngredientScanView: View {
                 .frame(maxHeight: .infinity)
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: .resetIngredientState)) { _ in
-            capturedPhoto = nil
-            viewModel.capturedImage = nil
-            viewModel.ingredientsSheetData = nil
+        .onAppear {
+            print("Product Ingredient View appeared")
         }
-        .fullScreenCover(isPresented: Binding(
-            get: { presentationManager.activeSheet == "Scanner" },
-            set: { if !$0 { presentationManager.activeSheet = nil } }
-        )) {
-            IngredientScannerView(viewModel: viewModel)
-                .onAppear {
-                    capturedPhoto = nil
-                    viewModel.capturedImage = nil
-                }
-                .onDisappear {
-                    capturedPhoto = nil
-                    viewModel.capturedImage = nil
-                }
+        .onDisappear {
+            print("Product Ingredient View disappeared")
         }
-        .onChange(of: viewModel.capturedImage) { photo in
-            if let photo = photo {
+        .fullScreenCover(item: $activeModal, content: { modal in
+            switch modal {
+                case .scanner:
+                    IngredientScannerView(viewModel: viewModel)
+                        .onAppear {
+                            capturedPhoto = nil
+                            print("Previous photo is cleared on scanner view appear")
+                        }
+                        .onDisappear {
+                            print("Ingredient scanner view disappeared")
+                        }
+                case .ingredientCheck:
+                    IngredientFoodDataView(
+                        ingredients: viewModel.ingredientData?.ingredients ?? [],
+                        errorMessage: viewModel.ingredientData?.errorMessage,
+                        onDismiss: {
+                            print("Resetting ingredient camera")
+                            activeModal = nil
+                        }
+                    )
+            }
+        })
+        .onChange(of: viewModel.capturedImage) { _, new in
+            if let photo = new {
+                print("Ingredient photo changed")
                 capturedPhoto = photo
+                print("Parsing ingredients")
                 viewModel.processImageForIngredients()
-                
-                // Delay the sheet presentation to prevent overlapping
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    presentationManager.present(sheet: "IngredientSheet")
-                }
+            } else {
+                print("Invalid ingredient photo")
             }
         }
-        .fullScreenCover(isPresented: Binding(
-            get: { presentationManager.activeSheet == "IngredientSheet" },
-            set: { if !$0 { presentationManager.activeSheet = nil } }
-        )) {
-            if let sheetData = viewModel.ingredientsSheetData {
-                IngredientSheetView(
-                    ingredients: sheetData.ingredients,
-                    errorMessage: sheetData.errorMessage
-                ) {
-                    viewModel.dismissIngredientsSheet()
-                    presentationManager.activeSheet = nil
-                }
+        .onChange(of: viewModel.ingredientData) { _, newData in
+            if newData != nil {
+                print("Navigating to ingredient check view")
+                activeModal = .ingredientCheck
+            } else {
+                print("No data from ingredient")
             }
         }
     }

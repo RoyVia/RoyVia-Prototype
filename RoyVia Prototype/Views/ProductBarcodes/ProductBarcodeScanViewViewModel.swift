@@ -3,7 +3,7 @@ import SwiftUI
 
 class ProductBarcodeScanViewViewModel: ObservableObject {
     @Published var scannedCode: String? = nil
-    @Published var ingredients: [String] = []
+    @Published var ingredientData: IngredientData? = nil
     @Published var isLoading: Bool = false
     @Published var errorMessage: String? = nil
     
@@ -12,7 +12,7 @@ class ProductBarcodeScanViewViewModel: ObservableObject {
     // Reset state
     func resetState() {
         scannedCode = nil
-        ingredients = []
+        ingredientData = nil
         errorMessage = nil
     }
     
@@ -24,7 +24,7 @@ class ProductBarcodeScanViewViewModel: ObservableObject {
     
     // Fetch ingredients from USDA database
     private func fetchIngredients(for originalBarcode: String, and trimmedBarcode: String) {
-        self.ingredients = []
+        self.ingredientData = nil
         self.isLoading = true
         self.errorMessage = nil
         
@@ -41,6 +41,7 @@ class ProductBarcodeScanViewViewModel: ObservableObject {
             
             // If both attempts failed, update the error message
             DispatchQueue.main.async {
+                print("USDA barcode data acquisitoin failed")
                 self.isLoading = false
                 self.errorMessage = "This product is not registered in USDA database."
             }
@@ -57,8 +58,9 @@ class ProductBarcodeScanViewViewModel: ObservableObject {
             
             if let firstFood = foodData.foods.first {
                 DispatchQueue.main.async {
-                    self.ingredients = firstFood.parseIngredients()
+                    self.ingredientData = IngredientData(ingredients: firstFood.parseIngredients(), errorMessage: nil)
                     self.isLoading = false
+                    print("Ingredient Fetch completed")
                 }
                 return true // Success
             }

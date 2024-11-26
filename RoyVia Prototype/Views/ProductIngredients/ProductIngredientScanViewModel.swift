@@ -4,20 +4,14 @@ import Vision
 
 class ProductIngredientScanViewModel: ObservableObject {
     @Published var capturedImage: UIImage? = nil
-    @Published var ingredientsSheetData: IngredientsSheetData? = nil
-    
-    
-    struct IngredientsSheetData: Identifiable {
-        let id = UUID()
-        let ingredients: [String]
-        let errorMessage: String?
-    }
+    @Published var ingredientData: IngredientData? = nil
     
     func processImageForIngredients() {
         guard let image = capturedImage, let cgImage = image.cgImage else {
             presentError("Invalid image")
             return
         }
+        print("Received Ingredient Image")
         
         let requestHandler = VNImageRequestHandler(cgImage: cgImage, options: [:])
         let textRecognitionRequest = VNRecognizeTextRequest { [weak self] request, error in
@@ -53,6 +47,7 @@ class ProductIngredientScanViewModel: ObservableObject {
         
         guard let range = recognizedText.range(of: "ingredients:") else {
             presentError("Ingredients section not found")
+            print("Ingredients section not found")
             return
         }
         
@@ -60,8 +55,10 @@ class ProductIngredientScanViewModel: ObservableObject {
         if let endIndex = ingredientsText.firstIndex(of: ".") {
             let rawIngredients = ingredientsText[..<endIndex]
             let parsedIngredients = splitIngredients(String(rawIngredients))
+            print("Ingredient Parsing completed")
             DispatchQueue.main.async {
-                self.ingredientsSheetData = IngredientsSheetData(ingredients: parsedIngredients, errorMessage: nil)
+                self.ingredientData = IngredientData(ingredients: parsedIngredients, errorMessage: nil)
+                print("Ingredients List Dispatched")
             }
         } else {
             presentError("Ingredients section not properly formatted")
@@ -99,11 +96,11 @@ class ProductIngredientScanViewModel: ObservableObject {
     
     private func presentError(_ message: String) {
         DispatchQueue.main.async {
-            self.ingredientsSheetData = IngredientsSheetData(ingredients: [], errorMessage: message)
+            self.ingredientData = IngredientData(ingredients: [], errorMessage: message)
         }
     }
     
     func dismissIngredientsSheet() {
-        ingredientsSheetData = nil
+        ingredientData = nil
     }
 }
