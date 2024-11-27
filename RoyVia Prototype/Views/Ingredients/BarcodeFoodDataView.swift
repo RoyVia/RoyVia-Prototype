@@ -7,9 +7,10 @@ struct BarcodeFoodDataView: View {
     
     var body: some View {
         NavigationView {
-            ZStack{
+            ZStack {
                 BackgroundView()
                     .opacity(0.4)
+                
                 VStack {
                     if let errorMessage = errorMessage {
                         Text(errorMessage)
@@ -29,9 +30,9 @@ struct BarcodeFoodDataView: View {
                             .font(.headline)
                             .padding()
                     }
+                    
                     Spacer()
                     
-                    // Close Button
                     Button(action: {
                         onDismiss()
                     }) {
@@ -40,14 +41,6 @@ struct BarcodeFoodDataView: View {
                 }
             }
             .navigationTitle("USDA Food Data")
-            .navigationBarTitleDisplayMode(.large)
-        }
-        .onAppear {
-            print("BarcodeFoodDataView appeared")
-        }
-        .onDisappear{
-            onDismiss()
-            print("BarcodeFoodDataView disappeared")
         }
     }
 }

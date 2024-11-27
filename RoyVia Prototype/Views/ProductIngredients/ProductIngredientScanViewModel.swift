@@ -6,6 +6,12 @@ class ProductIngredientScanViewModel: ObservableObject {
     @Published var capturedImage: UIImage? = nil
     @Published var ingredientData: IngredientData? = nil
     
+    // Resets the state of the view model
+    func resetState() {
+        capturedImage = nil
+        ingredientData = nil
+    }
+    
     func processImageForIngredients() {
         guard let image = capturedImage, let cgImage = image.cgImage else {
             presentError("Invalid image")
@@ -34,7 +40,9 @@ class ProductIngredientScanViewModel: ObservableObject {
             do {
                 try requestHandler.perform([textRecognitionRequest])
             } catch {
-                self.presentError("Failed to process image: \(error.localizedDescription)")
+                self.presentError(
+                    "Failed to process image: \(error.localizedDescription)"
+                )
             }
         }
     }
@@ -98,9 +106,5 @@ class ProductIngredientScanViewModel: ObservableObject {
         DispatchQueue.main.async {
             self.ingredientData = IngredientData(ingredients: [], errorMessage: message)
         }
-    }
-    
-    func dismissIngredientsSheet() {
-        ingredientData = nil
     }
 }

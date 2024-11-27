@@ -1,11 +1,10 @@
-
 import SwiftUI
 import AVFoundation
 import AudioToolbox
 
 struct BarcodeScannerView: UIViewControllerRepresentable {
     var onCodeScanned: (String, AVMetadataObject.ObjectType) -> Void
-    @Binding var isScanning: Bool // Bind to control session start/stop
+    @Binding var isScanning: Bool
     
     class Coordinator: NSObject, AVCaptureMetadataOutputObjectsDelegate {
         var parent: BarcodeScannerView
@@ -15,32 +14,24 @@ struct BarcodeScannerView: UIViewControllerRepresentable {
             self.parent = parent
         }
         
-        func metadataOutput(_ output: AVCaptureMetadataOutput, didOutput metadataObjects: [AVMetadataObject], from connection: AVCaptureConnection) {
+        func metadataOutput(_ output: AVCaptureMetadataOutput,
+                            didOutput metadataObjects: [AVMetadataObject],
+                            from connection: AVCaptureConnection) {
             guard let metadataObject = metadataObjects.first,
                   let readableObject = metadataObject as? AVMetadataMachineReadableCodeObject,
                   let stringValue = readableObject.stringValue else { return }
             
-            let barcodeType = readableObject.type
-            
-            // Trigger vibration upon successful capture
             AudioServicesPlaySystemSound(kSystemSoundID_Vibrate)
             
-            // Stop scanning temporarily
-            DispatchQueue.global(qos: .userInitiated).async {
-                self.captureSession?.stopRunning()
-                print("- Barcode scaning shutting down after scan")
-            }
-            
-            // Return the scanned code and its type
             DispatchQueue.main.async {
-                self.parent.onCodeScanned(stringValue, barcodeType)
+                self.parent.onCodeScanned(stringValue, readableObject.type)
             }
         }
+
     }
     
     func makeCoordinator() -> Coordinator {
-        let coordinator = Coordinator(parent: self)
-        return coordinator
+        return Coordinator(parent: self)
     }
     
     func makeUIViewController(context: Context) -> UIViewController {
@@ -58,47 +49,27 @@ struct BarcodeScannerView: UIViewControllerRepresentable {
                 captureSession.addInput(videoInput)
             }
             
-            // Enable auto-focus and continuous focus
-            try videoCaptureDevice.lockForConfiguration()
-            if videoCaptureDevice.isFocusModeSupported(.continuousAutoFocus) {
-                videoCaptureDevice.focusMode = .continuousAutoFocus
-            } else if videoCaptureDevice.isFocusModeSupported(.autoFocus) {
-                videoCaptureDevice.focusMode = .autoFocus
+            let metadataOutput = AVCaptureMetadataOutput()
+            if captureSession.canAddOutput(metadataOutput) {
+                captureSession.addOutput(metadataOutput)
+                metadataOutput.setMetadataObjectsDelegate(context.coordinator, queue: DispatchQueue.main)
+                metadataOutput.metadataObjectTypes = [.qr, .ean13, .ean8, .code128]
             }
             
-            if videoCaptureDevice.isSmoothAutoFocusSupported {
-                videoCaptureDevice.isSmoothAutoFocusEnabled = true
-            }
+            let previewLayer = AVCaptureVideoPreviewLayer(session: captureSession)
+            previewLayer.videoGravity = .resizeAspectFill
+            previewLayer.frame = viewController.view.bounds
+            viewController.view.layer.addSublayer(previewLayer)
             
-            videoCaptureDevice.unlockForConfiguration()
+            // Add the overlay with the close button
+            setupOverlay(on: viewController.view, controller: viewController)
         } catch {
-            print("Error configuring video device: \(error)")
-            return viewController
+            print("Error configuring capture session: \(error)")
         }
-        
-        let metadataOutput = AVCaptureMetadataOutput()
-        if captureSession.canAddOutput(metadataOutput) {
-            captureSession.addOutput(metadataOutput)
-            metadataOutput.setMetadataObjectsDelegate(context.coordinator, queue: DispatchQueue.main)
-            metadataOutput.metadataObjectTypes = [.qr, .ean13, .ean8, .code128]
-        }
-        
-        // Set up preview layer limited to half the screen
-        let previewLayer = AVCaptureVideoPreviewLayer(session: captureSession)
-        previewLayer.videoGravity = .resizeAspectFill
-        
-        let screenBounds = UIScreen.main.bounds
-        let halfScreenFrame = CGRect(x: 0, y: 0, width: screenBounds.width, height: screenBounds.height / 2)
-        previewLayer.frame = halfScreenFrame
-        viewController.view.layer.addSublayer(previewLayer)
-        
-        // Add the overlay to match the half-screen feed
-        addOverlay(to: viewController.view, cameraFrame: halfScreenFrame)
         
         DispatchQueue.global(qos: .userInitiated).async {
             if self.isScanning {
                 captureSession.startRunning()
-                print("- Barcode scaning turning on while prepiing ViewController")
             }
         }
         
@@ -108,39 +79,47 @@ struct BarcodeScannerView: UIViewControllerRepresentable {
     func updateUIViewController(_ uiViewController: UIViewController, context: Context) {
         guard let session = context.coordinator.captureSession else { return }
         
-        if isScanning {
-            DispatchQueue.global(qos: .userInitiated).async {
+        DispatchQueue.global(qos: .userInitiated).async {
+            if self.isScanning {
                 if !session.isRunning {
                     session.startRunning()
-                    print("- Barcode scaning turning on")
                 }
-            }
-        } else {
-            DispatchQueue.global(qos: .userInitiated).async {
+            } else {
                 if session.isRunning {
                     session.stopRunning()
-                    print("- Barcode scaning shutting down")
                 }
             }
         }
     }
     
     static func dismantleUIViewController(_ uiViewController: UIViewController, coordinator: Coordinator) {
-        coordinator.captureSession?.stopRunning()
-        coordinator.captureSession = nil
+        DispatchQueue.global(qos: .background).async {
+            coordinator.captureSession?.stopRunning()
+            coordinator.captureSession = nil
+        }
     }
     
-    private func addOverlay(to parentView: UIView, cameraFrame: CGRect) {
-        let overlayView = UIView(frame: cameraFrame)
+    private func setupOverlay(on parentView: UIView, controller: UIViewController) {
+        // Create a semi-transparent overlay view
+        let overlayView = UIView(frame: parentView.bounds)
         overlayView.backgroundColor = UIColor.black.withAlphaComponent(0.5)
-        overlayView.isUserInteractionEnabled = false
+        overlayView.isUserInteractionEnabled = true // Enable interaction for the close button
         
-        // Define the viewfinder size and position within the half-screen camera feed
-        let viewfinderWidth = cameraFrame.width * 0.7
-        let viewfinderHeight = cameraFrame.height * 0.7
+        // Define dimensions for button and label area
+        let buttonHeight: CGFloat = 100 // Height of the button + padding
+        let labelHeight: CGFloat = 50  // Height of the instruction label + padding
+        let reservedHeight = buttonHeight + labelHeight // Total reserved height for button and label
+        
+        // Calculate the remaining height for the viewfinder and its position
+        let remainingHeight = parentView.bounds.height - reservedHeight
+        let viewfinderWidth: CGFloat = parentView.bounds.width * 0.7
+        let viewfinderHeight: CGFloat = remainingHeight * 0.7
+        let viewfinderTop: CGFloat = labelHeight + 50// Start below the reserved label area
+        
+        // Define the viewfinder rectangle
         let viewfinderRect = CGRect(
-            x: cameraFrame.midX - viewfinderWidth / 2,
-            y: cameraFrame.midY - viewfinderHeight / 2,
+            x: parentView.bounds.midX - viewfinderWidth / 2,
+            y: viewfinderTop,
             width: viewfinderWidth,
             height: viewfinderHeight
         )
@@ -167,20 +146,42 @@ struct BarcodeScannerView: UIViewControllerRepresentable {
         
         // Add an instruction label
         let instructionLabel = UILabel()
-        instructionLabel.text = "Align the barcode or QR code\nnear the frame to scan"
+        instructionLabel.text = "Align the barcode or QR code\nwithin the frame to scan."
         instructionLabel.textColor = .white
         instructionLabel.font = UIFont.systemFont(ofSize: 16, weight: .medium)
         instructionLabel.textAlignment = .center
+        instructionLabel.numberOfLines = 0
+        instructionLabel.lineBreakMode = .byWordWrapping
         instructionLabel.translatesAutoresizingMaskIntoConstraints = false
         overlayView.addSubview(instructionLabel)
         
-        // Add the overlay view to the parent view
+        // Add a close button
+        let closeButton = UIButton(type: .system)
+        let closeImage = UIImage(
+            systemName: "xmark.circle",
+            withConfiguration: UIImage
+                .SymbolConfiguration(pointSize: 30, weight: .regular)
+        )
+        closeButton.setImage(closeImage, for: .normal)
+        closeButton.tintColor = .white
+        closeButton.translatesAutoresizingMaskIntoConstraints = false
+        closeButton.addAction(UIAction { _ in
+            controller.dismiss(animated: true)
+        }, for: .touchUpInside)
+        overlayView.addSubview(closeButton)
+        
         parentView.addSubview(overlayView)
         
         // Set up Auto Layout for the instruction label
         NSLayoutConstraint.activate([
             instructionLabel.centerXAnchor.constraint(equalTo: overlayView.centerXAnchor),
             instructionLabel.topAnchor.constraint(equalTo: overlayView.topAnchor, constant: viewfinderRect.maxY + 20)
+        ])
+        
+        // Set up Auto Layout for the close button
+        NSLayoutConstraint.activate([
+            closeButton.trailingAnchor.constraint(equalTo: overlayView.trailingAnchor, constant: -16),
+            closeButton.topAnchor.constraint(equalTo: overlayView.topAnchor, constant: 16)
         ])
     }
 }

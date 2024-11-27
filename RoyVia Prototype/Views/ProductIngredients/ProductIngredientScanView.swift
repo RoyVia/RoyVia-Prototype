@@ -3,61 +3,87 @@ import SwiftUI
 struct ProductIngredientScanView: View {
     @ObservedObject var royviaData: RoyViaDataViewModel
     @StateObject private var viewModel = ProductIngredientScanViewModel()
-    @State private var capturedPhoto: UIImage? = nil
-    @State private var activeModal: ActiveModal? = nil // Enum to manage modals
+    @State private var modalState: ModalState = .idle
     
-    enum ActiveModal: Identifiable {
-        case scanner
-        case ingredientCheck
-        
-        var id: String {
-            switch self {
-                case .scanner:
-                    return "scanner"
-                case .ingredientCheck:
-                    return "ingredientCheck"
-            }
-        }
+    enum ModalState: Equatable {
+        case idle
+        case showingScanner
+        case showingIngredients
     }
     
     var body: some View {
-        ZStack {
-            BackgroundView()
-            
-            VStack(spacing: 0) {
-                if let photo = capturedPhoto {
-                    Image(uiImage: photo)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(height: UIScreen.main.bounds.height * 0.5)
-                        .clipped()
-                } else {
-                    Rectangle()
-                        .fill(Color.gray.opacity(0.3))
-                        .frame(height: UIScreen.main.bounds.height * 0.5)
-                        .overlay(Text("Photo will appear here").foregroundColor(.gray))
-                }
+        NavigationStack {
+            ZStack {
+                BackgroundView()
                 
-                VStack {
-                    Text("Take a photo of 'Ingredients' label")
-                        .foregroundColor(.gray)
-                        .font(.headline)
-                        .padding()
-                    Text("Please ensure to capture from 'Ingredients:' to the period ('.').")
-                        .multilineTextAlignment(.center)
-                        .foregroundColor(.gray)
-                        .font(.headline)
-                        .padding()
-                    Button(action: {
-                        viewModel.capturedImage = nil
-                        viewModel.ingredientData = nil
-                        activeModal = .scanner
-                    }) {
-                        OutlineTextView(text: "Take a Photo")
+                VStack(spacing: 0) {
+                    if let capturedImage = viewModel.capturedImage {
+                        Image(uiImage: capturedImage)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(height: UIScreen.main.bounds.height * 0.5)
+                            .clipped()
+                    } else {
+                        Rectangle()
+                            .fill(Color.gray.opacity(0.3))
+                            .frame(height: UIScreen.main.bounds.height * 0.5)
+                            .overlay(
+                                Image(systemName: "text.viewfinder")
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: UIScreen.main.bounds.height * 0.25) // 50% of rectangle height
+                                    .foregroundColor(modalState == .showingScanner ? .green : .gray)
+                            )
                     }
-                    .padding()
+                    
+                    VStack {
+                        Text("Take a photo of 'Ingredients' label")
+                            .foregroundColor(.gray)
+                            .font(.headline)
+                            .padding()
+                        
+                        Text("We identify ingredients from the label and analyze\ntheir hormonal and health impacts based on\nRoyVia's perspectives.")
+                            .multilineTextAlignment(.center)
+                            .foregroundColor(.gray)
+                            .font(.headline)
+                            .padding()
+                        
+                        Button(action: {
+                            modalState = .showingScanner
+                        }) {
+                            OutlineTextView(text: "Take a Photo")
+                        }
+                        .padding()
+                    }
+                    .frame(maxHeight: .infinity)
                 }
-                .frame(maxHeight: .infinity)
+            }
+            .fullScreenCover(isPresented: Binding(
+                get: { modalState != .idle },
+                set: { modalState = $0 ? modalState : .idle }
+            )) {
+                if modalState == .showingScanner {
+                    IngredientScannerView(viewModel: viewModel)
+                        .onDisappear {
+                            if let capturedImage = viewModel.capturedImage {
+                                viewModel.processImageForIngredients()
+                            }
+                        }
+                } else if modalState == .showingIngredients {
+                    IngredientFoodDataView(
+                        ingredients: viewModel.ingredientData?.ingredients ?? [],
+                        errorMessage: viewModel.ingredientData?.errorMessage,
+                        onDismiss: {
+                            modalState = .idle
+                            viewModel.resetState()
+                        }
+                    )
+                }
+            }
+            .onChange(of: viewModel.ingredientData) { _, newData in
+                if newData != nil && modalState != .showingIngredients {
+                    modalState = .showingIngredients
+                }
             }
         }
         .onAppear {
@@ -65,46 +91,6 @@ struct ProductIngredientScanView: View {
         }
         .onDisappear {
             print("Product Ingredient View disappeared")
-        }
-        .fullScreenCover(item: $activeModal, content: { modal in
-            switch modal {
-                case .scanner:
-                    IngredientScannerView(viewModel: viewModel)
-                        .onAppear {
-                            capturedPhoto = nil
-                            print("Previous photo is cleared on scanner view appear")
-                        }
-                        .onDisappear {
-                            print("Ingredient scanner view disappeared")
-                        }
-                case .ingredientCheck:
-                    IngredientFoodDataView(
-                        ingredients: viewModel.ingredientData?.ingredients ?? [],
-                        errorMessage: viewModel.ingredientData?.errorMessage,
-                        onDismiss: {
-                            print("Resetting ingredient camera")
-                            activeModal = nil
-                        }
-                    )
-            }
-        })
-        .onChange(of: viewModel.capturedImage) { _, new in
-            if let photo = new {
-                print("Ingredient photo changed")
-                capturedPhoto = photo
-                print("Parsing ingredients")
-                viewModel.processImageForIngredients()
-            } else {
-                print("Invalid ingredient photo")
-            }
-        }
-        .onChange(of: viewModel.ingredientData) { _, newData in
-            if newData != nil {
-                print("Navigating to ingredient check view")
-                activeModal = .ingredientCheck
-            } else {
-                print("No data from ingredient")
-            }
         }
     }
 }

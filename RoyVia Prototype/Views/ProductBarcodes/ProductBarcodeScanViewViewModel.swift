@@ -9,46 +9,41 @@ class ProductBarcodeScanViewViewModel: ObservableObject {
     
     private let apiKey = "sYnm3fNHFejMKSz10fWKFQPbmAKa58mBVnVewlHf"
     
-    // Reset state
     func resetState() {
         scannedCode = nil
         ingredientData = nil
         errorMessage = nil
     }
     
-    // Handle scanned barcode
     func handleScannedBarcode(_ code: String) {
         let trimmedCode = code.hasPrefix("0") ? String(code.dropFirst()) : code
         fetchIngredients(for: code, and: trimmedCode)
     }
     
-    // Fetch ingredients from USDA database
     private func fetchIngredients(for originalBarcode: String, and trimmedBarcode: String) {
-        self.ingredientData = nil
         self.isLoading = true
         self.errorMessage = nil
         
         Task {
-            // Try fetching with the original barcode
-            if await tryFetchingIngredients(for: originalBarcode) {
-                return
+            let success = await withTaskGroup(of: Bool.self) { group in
+                group.addTask { await self.tryFetchingIngredients(for: originalBarcode) }
+                group.addTask { await self.tryFetchingIngredients(for: trimmedBarcode) }
+                
+                for await result in group {
+                    if result { return true }
+                }
+                return false
             }
             
-            // Try fetching with the trimmed barcode if the first attempt failed
-            if await tryFetchingIngredients(for: trimmedBarcode) {
-                return
-            }
-            
-            // If both attempts failed, update the error message
             DispatchQueue.main.async {
-                print("USDA barcode data acquisitoin failed")
                 self.isLoading = false
-                self.errorMessage = "This product is not registered in USDA database."
+                if !success {
+                    self.errorMessage = "This product is not registered in the USDA database."
+                }
             }
         }
     }
     
-    // Helper method to fetch ingredients for a given barcode
     private func tryFetchingIngredients(for barcode: String) async -> Bool {
         do {
             let encodedBarcode = barcode.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? barcode
@@ -59,14 +54,12 @@ class ProductBarcodeScanViewViewModel: ObservableObject {
             if let firstFood = foodData.foods.first {
                 DispatchQueue.main.async {
                     self.ingredientData = IngredientData(ingredients: firstFood.parseIngredients(), errorMessage: nil)
-                    self.isLoading = false
-                    print("Ingredient Fetch completed")
                 }
-                return true // Success
+                return true
             }
         } catch {
-            print("Failed to fetch data for barcode \(barcode): \(error.localizedDescription)")
+            print("Error fetching data for barcode \(barcode): \(error)")
         }
-        return false // Failure
+        return false
     }
 }
