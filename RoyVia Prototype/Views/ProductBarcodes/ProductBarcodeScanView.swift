@@ -1,8 +1,8 @@
 import SwiftUI
 
 struct ProductBarcodeScanView: View {
-    @ObservedObject var royviaData: RoyViaDataViewModel
-    @StateObject private var viewModel = ProductBarcodeScanViewViewModel()
+    @ObservedObject var rvDataViewModel: RVDataViewModel
+    @StateObject private var PBSviewModel = ProductBarcodeScanViewViewModel()
     @State private var modalState: ModalState = .idle
     
     enum ModalState: Equatable {
@@ -28,7 +28,7 @@ struct ProductBarcodeScanView: View {
                                 .foregroundColor(modalState == .showingScanner ? .green : .gray)
                         )
                     
-                    if viewModel.isLoading {
+                    if PBSviewModel.isLoading {
                         ProgressView("Fetching Ingredients...")
                             .progressViewStyle(CircularProgressViewStyle(tint: .blue))
                             .padding()
@@ -63,23 +63,25 @@ struct ProductBarcodeScanView: View {
                 if modalState == .showingScanner {
                     BarcodeScannerView(
                         onCodeScanned: { code, _ in
-                            viewModel.handleScannedBarcode(code)
+                            PBSviewModel.handleScannedBarcode(code)
                             modalState = .showingIngredients
                         },
                         isScanning: .constant(modalState == .showingScanner)
                     )
                 } else if modalState == .showingIngredients {
-                    BarcodeFoodDataView(
-                        ingredients: viewModel.ingredientData?.ingredients ?? [],
-                        errorMessage: viewModel.ingredientData?.errorMessage,
+                    FoodDataAnalysisView(
+                        rvDataViewModel: rvDataViewModel,
+                        ingredients: PBSviewModel.ingredientData?.ingredients ?? [],
+                        errorMessage: PBSviewModel.ingredientData?.errorMessage,
                         onDismiss: {
                             modalState = .idle
-                            viewModel.resetState()
+                            PBSviewModel.resetState()
                         }
                     )
                 }
             }
-            .onChange(of: viewModel.ingredientData) { _, newData in
+            .onChange(of: PBSviewModel.ingredientData) { _, newData in
+                print(PBSviewModel.ingredientData?.ingredients ?? "No Data?")
                 if newData != nil && modalState != .showingIngredients {
                     modalState = .showingIngredients
                 }

@@ -1,8 +1,8 @@
 import SwiftUI
 
 struct ProductIngredientScanView: View {
-    @ObservedObject var royviaData: RoyViaDataViewModel
-    @StateObject private var viewModel = ProductIngredientScanViewModel()
+    @ObservedObject var rvDataViewModel: RVDataViewModel
+    @StateObject private var PISviewModel = ProductIngredientScanViewModel()
     @State private var modalState: ModalState = .idle
     
     enum ModalState: Equatable {
@@ -17,7 +17,7 @@ struct ProductIngredientScanView: View {
                 BackgroundView()
                 
                 VStack(spacing: 0) {
-                    if let capturedImage = viewModel.capturedImage {
+                    if let capturedImage = PISviewModel.capturedImage {
                         Image(uiImage: capturedImage)
                             .resizable()
                             .scaledToFill()
@@ -63,24 +63,33 @@ struct ProductIngredientScanView: View {
                 set: { modalState = $0 ? modalState : .idle }
             )) {
                 if modalState == .showingScanner {
-                    IngredientScannerView(viewModel: viewModel)
+                    IngredientScannerView(viewModel: PISviewModel)
                         .onDisappear {
-                            if let capturedImage = viewModel.capturedImage {
-                                viewModel.processImageForIngredients()
+                            if PISviewModel.capturedImage != nil {
+                                PISviewModel.processImageForIngredients()
                             }
                         }
                 } else if modalState == .showingIngredients {
-                    IngredientFoodDataView(
-                        ingredients: viewModel.ingredientData?.ingredients ?? [],
-                        errorMessage: viewModel.ingredientData?.errorMessage,
+//                    IngredientFoodDataView(
+//                        ingredients: viewModel.ingredientData?.ingredients ?? [],
+//                        errorMessage: viewModel.ingredientData?.errorMessage,
+//                        onDismiss: {
+//                            modalState = .idle
+//                            viewModel.resetState()
+//                        }
+//                    )
+                    FoodDataAnalysisView(
+                        rvDataViewModel: rvDataViewModel,
+                        ingredients: PISviewModel.ingredientData?.ingredients ?? [],
+                        errorMessage: PISviewModel.ingredientData?.errorMessage,
                         onDismiss: {
                             modalState = .idle
-                            viewModel.resetState()
+                            PISviewModel.resetState()
                         }
                     )
                 }
             }
-            .onChange(of: viewModel.ingredientData) { _, newData in
+            .onChange(of: PISviewModel.ingredientData) { _, newData in
                 if newData != nil && modalState != .showingIngredients {
                     modalState = .showingIngredients
                 }

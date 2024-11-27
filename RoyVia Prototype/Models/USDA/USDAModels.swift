@@ -39,21 +39,44 @@ struct FoodItem: Codable {
         var result: [String] = []
         var currentIngredient = ""
         var openParenthesesCount = 0
+        var iterator = self.ingredients?.makeIterator() ?? "".makeIterator()
+        var character: Character? = iterator.next()
         
-        for character in self.ingredients ?? ""{
-            if character == "(" {
+        while let char = character {
+            if char == "(" {
                 openParenthesesCount += 1
-            } else if character == ")" {
+            } else if char == ")" {
                 openParenthesesCount -= 1
             }
             
-            if character == "," && openParenthesesCount == 0 {
-                // Split only if not inside parentheses
+            // Check for `,` or `**` as delimiters outside parentheses
+            if char == "," && openParenthesesCount == 0 {
+                // Split on comma
                 result.append(currentIngredient.trimmingCharacters(in: .whitespacesAndNewlines))
                 currentIngredient = ""
+            } else if char == "*" {
+                // Check for `**` sequence
+                let nextChar = iterator.next()
+                if nextChar == "*" && openParenthesesCount == 0 {
+                    // Split on `**`
+                    result.append(currentIngredient.trimmingCharacters(in: .whitespacesAndNewlines))
+                    currentIngredient = ""
+                    character = iterator.next() // Move to the next character after `**`
+                    continue
+                } else {
+                    // Not a `**` sequence, append current `*` and continue
+                    currentIngredient.append(char)
+                    if let nextChar = nextChar { currentIngredient.append(nextChar) }
+                    character = iterator.next()
+                    continue
+                }
             } else {
-                currentIngredient.append(character)
+                // Append character to the current ingredient
+                currentIngredient.append(char)
             }
+            
+            // Move to the next character
+            character = iterator.next()
         }
         
         // Append the last ingredient if any
@@ -63,5 +86,6 @@ struct FoodItem: Codable {
         
         return result
     }
+
     
 }

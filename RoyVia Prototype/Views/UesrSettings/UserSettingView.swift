@@ -1,7 +1,8 @@
 import SwiftUI
 
 struct UserSettingView: View {
-    @ObservedObject var royviaData: RoyViaDataViewModel
+    @ObservedObject var rvDataViewModel: RVDataViewModel
+    
     
     var body: some View {
         NavigationStack {
@@ -11,6 +12,12 @@ struct UserSettingView: View {
                     Text("Your Areas of Concern")
                         .foregroundColor(.white)
                         .font(.title)
+                    Text("Future version will allow you to setup\nyour own area(s) of concern")
+                        .multilineTextAlignment(.center)
+                        .foregroundColor(.gray)
+                        .font(.subheadline)
+                        .padding()
+                    
                 }
             }
         }

@@ -2,7 +2,7 @@ import SwiftData
 import Foundation
 
 @Model
-final class RoyViaDBVersion: Codable, Equatable {
+final class RVDBVersion: Codable, Equatable {
     @Attribute(.unique) var date: Date
     var revision: Int
     
@@ -17,7 +17,7 @@ final class RoyViaDBVersion: Codable, Equatable {
     }
     
     // Comparison method to determine if an incoming version is newer
-    func isNewerThan(_ other: RoyViaDBVersion) -> Bool {
+    func isNewerThan(_ other: RVDBVersion) -> Bool {
         if self.date > other.date {
             return true
         } else if self.date == other.date && self.revision > other.revision {
@@ -27,15 +27,15 @@ final class RoyViaDBVersion: Codable, Equatable {
     }
     
     // Equatable conformance for comparing two objects
-    static func == (lhs: RoyViaDBVersion, rhs: RoyViaDBVersion) -> Bool {
+    static func == (lhs: RVDBVersion, rhs: RVDBVersion) -> Bool {
         lhs.date == rhs.date && lhs.revision == rhs.revision
     }
     
     // MARK: - Codable Implementation
     
     enum CodingKeys: String, CodingKey {
-        case date
-        case revision
+        case date = "Date"
+        case revision = "Revision"
     }
     
     required init(from decoder: Decoder) throws {

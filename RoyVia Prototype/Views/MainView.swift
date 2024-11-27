@@ -1,32 +1,32 @@
 import SwiftUI
 
 struct MainView: View {
-    @StateObject var royviaData = RoyViaDataViewModel()
+    @StateObject var rvDataViewModel = RVDataViewModel()
     @State private var selectedTab = 0
     
     var body: some View {
         ZStack {
-            if !royviaData.isLoading && royviaData.errorMessage == nil {
+            if !rvDataViewModel.isLoading && rvDataViewModel.errorMessage == nil {
                 TabView(selection: $selectedTab) {
-                    UserSettingView(royviaData: royviaData)
+                    UserSettingView(rvDataViewModel: rvDataViewModel)
                         .tabItem {
                             Label("Your Settings", systemImage: "person.crop.square")
                         }
                         .tag(0)
                     
-                    ProductBarcodeScanView(royviaData: royviaData)
+                    ProductBarcodeScanView(rvDataViewModel: rvDataViewModel)
                         .tabItem {
                             Label("Barcode Scan", systemImage: "barcode.viewfinder")
                         }
                         .tag(1)
                     
-                    ProductIngredientScanView(royviaData: royviaData)
+                    ProductIngredientScanView(rvDataViewModel: rvDataViewModel)
                         .tabItem {
                             Label("Ingredient Scan", systemImage: "text.viewfinder")
                         }
                         .tag(2)
                 }
-                .onChange(of: selectedTab) { newTab in
+                .onChange(of: selectedTab) { oldTab, newTab in
                     if newTab == 1 { // Barcode Scanner tab
                         print("Changed, Barcode Tab")
                     } else if newTab == 2 { // Ingredient Scanner tab
@@ -39,7 +39,7 @@ struct MainView: View {
         }
         .onAppear {
             Task {
-                await royviaData.fetchData()
+                await rvDataViewModel.fetchData()
             }
         }
         .tint(.white)
@@ -50,7 +50,7 @@ struct MainView: View {
             BackgroundView()
             VStack {
                 RoyViaView()
-                if let errorMessage = royviaData.errorMessage {
+                if let errorMessage = rvDataViewModel.errorMessage {
                     VStack {
                         Text("Error: \(errorMessage)")
                             .foregroundColor(.red)
@@ -59,7 +59,7 @@ struct MainView: View {
                         
                         Button(action: {
                             Task {
-                                await royviaData.fetchData()
+                                await rvDataViewModel.fetchData()
                             }
                         }) {
                             OutlineTextView(text: "Let's ReTry!")
@@ -75,6 +75,6 @@ struct MainView: View {
             }
         }
         .transition(.opacity)
-        .animation(.easeInOut, value: royviaData.isLoading)
+        .animation(.easeInOut, value: rvDataViewModel.isLoading)
     }
 }
